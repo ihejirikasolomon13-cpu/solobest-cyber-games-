@@ -1,0 +1,18 @@
+
+{
+  "name": "Solobest Cyber Games",
+  "short_name": "Solobest Games",
+  "description": "Realistic Subway Surfer Lagos - Collect Gold, Dodge Trains!",
+  "start_url": "./?v=8",
+  "display": "standalone",
+  "background_color": "#0a0e1a",
+  "theme_color": "#00ff88",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/808/808439.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
