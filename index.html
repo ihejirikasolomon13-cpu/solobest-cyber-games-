@@ -1,0 +1,92 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Solobest Cyber Games</title>
+<style>
+body{margin:0;background:#0a0e1a;color:white;font-family:Arial;text-align:center;overflow-x:hidden}
+.ad-box{background:yellow;color:black;padding:15px;font-weight:bold;font-size:18px;border:3px solid red;margin:10px;border-radius:10px}
+.ad-box a{color:black;text-decoration:none}
+.game-card{background:#1a2340;margin:15px;padding:20px;border-radius:15px;border:2px solid #00ff88}
+button{background:#00ff88;color:black;padding:15px 30px;font-size:20px;font-weight:bold;border:none;border-radius:10px;margin:10px}
+canvas{background:#000;display:none;margin:10px auto;border:2px solid #00ff88;max-width:95%}
+#score{font-size:22px;color:#00ff88}
+</style>
+</head>
+<body>
+
+<div class="ad-box">
+<a href="https://wa.me/2348134918051?text=I want to advertise on Solobest Games">
+🔥 ADVERTISE HERE - 10K PER MONTH 🔥<br>Reach 500+ Gamers Daily! Tap to Chat!
+</a>
+</div>
+
+<h1>🎮 SOLOBEST CYBER GAMES 🎮</h1>
+<p>By Solomon - Cyber Developer</p>
+
+<div class="game-card">
+<h2>🏃 SUBWAY RUNNER</h2>
+<p>Tap to Jump - Avoid Red Blocks!</p>
+<div id="score1">Score: 0</div>
+<button onclick="startRunner()">PLAY RUNNER</button>
+<canvas id="game1" width="320" height="400"></canvas>
+</div>
+
+<div class="game-card">
+<h2>🔫 CYBER SHOOTER</h2>
+<p>Tap to Shoot - Destroy Enemies!</p>
+<div id="score2">Score: 0</div>
+<button onclick="startShooter()">PLAY SHOOTER</button>
+<canvas id="game2" width="320" height="400"></canvas>
+</div>
+
+<script>
+// RUNNER GAME
+let runnerScore=0, runnerY=300, runnerJump=0, runnerBlocks=[], runnerGame=false;
+function startRunner(){
+document.getElementById('game1').style.display='block';
+let c=document.getElementById('game1'), ctx=c.getContext('2d');
+runnerScore=0; runnerY=300; runnerBlocks=[]; runnerGame=true;
+c.onclick=()=>{if(runnerY>=300) runnerJump=-12}
+function loop(){
+if(!runnerGame) return;
+ctx.clearRect(0,0,320,400);
+runnerY+=runnerJump; runnerJump+=0.8;
+if(runnerY>300){runnerY=300; runnerJump=0}
+ctx.fillStyle='#00ff88'; ctx.fillRect(50,runnerY,30,30);
+if(Math.random()<0.02) runnerBlocks.push({x:320,y:310,w:20,h:20});
+for(let i=0;i<runnerBlocks.length;i++){
+let b=runnerBlocks[i]; b.x-=5;
+ctx.fillStyle='red'; ctx.fillRect(b.x,b.y,b.w,b.h);
+if(b.x<80 && b.x>20 && runnerY>280){runnerGame=false; alert('Game Over! Score:'+runnerScore); return}
+if(b.x<-20){runnerBlocks.splice(i,1); runnerScore++; document.getElementById('score1').innerText='Score: '+runnerScore}
+}
+requestAnimationFrame(loop);
+}
+loop();
+}
+
+// SHOOTER GAME
+let shooterScore=0, shooterX=160, shooterBullets=[], shooterEnemies=[], shooterGame=false;
+function startShooter(){
+document.getElementById('game2').style.display='block';
+let c=document.getElementById('game2'), ctx=c.getContext('2d');
+shooterScore=0; shooterBullets=[]; shooterEnemies=[]; shooterGame=true; shooterX=160;
+c.ontouchmove=(e)=>{shooterX=e.touches[0].clientX - c.getBoundingClientRect().left};
+c.onclick=()=>{shooterBullets.push({x:shooterX,y:350})}
+function loop2(){
+if(!shooterGame) return;
+ctx.clearRect(0,0,320,400);
+ctx.fillStyle='#00ff88'; ctx.fillRect(shooterX-15,350,30,20);
+if(Math.random()<0.03) shooterEnemies.push({x:Math.random()*300,y:0});
+for(let i=0;i<shooterBullets.length;i++){shooterBullets[i].y-=7; ctx.fillStyle='yellow'; ctx.fillRect(shooterBullets[i].x,shooterBullets[i].y,4,10)}
+for(let i=0;i<shooterEnemies.length;i++){shooterEnemies[i].y+=3; ctx.fillStyle='red'; ctx.fillRect(shooterEnemies[i].x,shooterEnemies[i].y,20,20)}
+for(let i=shooterBullets.length-1;i>=0;i--){for(let j=shooterEnemies.length-1;j>=0;j--){if(Math.abs(shooterBullets[i].x-shooterEnemies[j].x)<20 && Math.abs(shooterBullets[i].y-shooterEnemies[j].y)<20){shooterBullets.splice(i,1); shooterEnemies.splice(j,1); shooterScore++; document.getElementById('score2').innerText='Score: '+shooterScore; break}}}
+requestAnimationFrame(loop2);
+}
+loop2();
+}
+</script>
+</body>
+</html>
