@@ -1,0 +1,177 @@
+. 
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SOLOBEST FREE FIRE - Lagos Battle</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;touch-action:none}
+body{background:#000;overflow:hidden;font-family:Arial;color:white}
+#game{position:relative;width:100vw;height:100vh;overflow:hidden}
+canvas{display:block}
+#ui{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+#top{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between}
+.bar{background:rgba(0,0,0,0.7);padding:8px 12px;border-radius:20px;font-weight:bold;border:2px solid #ffcc00}
+#health{width:120px;height:18px;background:#333;border-radius:10px;overflow:hidden;border:2px solid #fff}
+#healthFill{height:100%;width:100%;background:linear-gradient(90deg,#0f0,#ff0);transition:width 0.2s}
+#joystick{position:absolute;bottom:20px;left:20px;width:120px;height:120px;background:rgba(255,255,255,0.1);border-radius:50%;border:2px solid rgba(255,255,255,0.3);pointer-events:all}
+#stick{position:absolute;width:50px;height:50px;background:rgba(255,204,0,0.8);border-radius:50%;left:35px;top:35px}
+#shootBtn{position:absolute;bottom:30px;right:20px;width:80px;height:80px;background:rgba(255,0,0,0.6);border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:18px;pointer-events:all}
+#lootBtn{position:absolute;bottom:120px;right:20px;width:70px;height:40px;background:#ffcc00;color:#000;border-radius:10px;display:none;align-items:center;justify-content:center;font-weight:bold;pointer-events:all}
+#minimap{position:absolute;top:60px;right:10px;width:100px;height:100px;background:rgba(0,0,0,0.7);border:2px solid #fff;border-radius:10px;overflow:hidden}
+#booyah{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:none;flex-direction:column;align-items:center;justify-content:center;pointer-events:all;z-index:10}
+#booyah h1{font-size:50px;color:#ffcc00;text-shadow:0 0 20px #ffcc00;margin-bottom:20px}
+.btn{padding:15px 30px;background:#ffcc00;color:#000;border:none;border-radius:10px;font-weight:bold;font-size:18px;margin:10px}
+#gunName{position:absolute;bottom:130px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);padding:5px 15px;border-radius:15px;font-size:14px}
+</style>
+</head>
+<body>
+<div id="game">
+<canvas id="c"></canvas>
+<div id="ui">
+<div id="top">
+<div><div id="health"><div id="healthFill"></div></div><div style="margin-top:5px" class="bar" id="alive">ALIVE: 16</div></div>
+<div class="bar" id="zone">ZONE: SAFE</div>
+</div>
+<div id="minimap"><canvas id="mini" width="100" height="100"></canvas></div>
+<div id="gunName">FIST | Ammo: ∞</div>
+<div id="joystick"><div id="stick"></div></div>
+<div id="shootBtn">FIRE</div>
+<div id="lootBtn">LOOT</div>
+<div id="booyah">
+<h1>BOOYAH!</h1>
+<p id="resultText" style="font-size:24px;margin-bottom:20px"></p>
+<button class="btn" onclick="location.reload()">PLAY AGAIN</button>
+</div>
+</div>
+</div>
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const mini=document.getElementById('mini'),mctx=mini.getContext('2d');
+canvas.width=innerWidth;canvas.height=innerHeight;
+let W=canvas.width,H=canvas.height;
+window.onresize=()=>{W=canvas.width=innerWidth;H=canvas.height=innerHeight;}
+
+let player={x:1500,y:1500,hp:100,maxHp:100,angle:0,speed:4,gun:0,ammo:[Infinity,90,20,60,30],hasVest:0,hasHelm:0};
+let guns=[{name:'FIST',dmg:10,range:60,fireRate:400},{name:'AK47',dmg:18,range:400,fireRate:120},{name:'SHOTGUN',dmg:40,range:200,fireRate:600},{name:'MP40',dmg:12,range:300,fireRate:80},{name:'SNIPER',dmg:70,range:600,fireRate:900}];
+let keys={x:0,y:0},shooting=false,lastShot=0,zoneRadius=1500,zoneX=1500,zoneY=1500,shrinkSpeed=0.15;
+let buildings=[],loots=[],enemies=[],bullets=[],particles=[],nearLoot=null,alive=16;
+
+for(let i=0;i<25;i++) buildings.push({x:Math.random()*2800+100,y:Math.random()*2800+100,w:120+Math.random()*80,h:120+Math.random()*80});
+for(let i=0;i<40;i++){
+ let type=Math.floor(Math.random()*5);
+ if(type==0) continue;
+ loots.push({x:Math.random()*2800+100,y:Math.random()*2800+100,type:type,taken:false});
+}
+for(let i=0;i<15;i++) enemies.push({x:Math.random()*2800+100,y:Math.random()*2800+100,hp:100,gun:1+Math.floor(Math.random()*4),alive:true,tx:Math.random()*2800,y:Math.random()*2800,lastShot:0});
+
+let cam={x:0,y:0};
+let joystick=document.getElementById('joystick'),stick=document.getElementById('stick');
+let joyActive=false,joyStart={x:0,y:0};
+joystick.addEventListener('touchstart',e=>{joyActive=true;joyStart.x=e.touches[0].clientX;joyStart.y=e.touches[0].clientY});
+joystick.addEventListener('touchmove',e=>{
+ if(!joyActive) return;
+ let dx=e.touches[0].clientX-joyStart.x,dy=e.touches[0].clientY-joyStart.y;
+ let dist=Math.min(45,Math.hypot(dx,dy)),ang=Math.atan2(dy,dx);
+ keys.x=Math.cos(ang)*dist/45;keys.y=Math.sin(ang)*dist/45;
+ stick.style.left=35+Math.cos(ang)*dist+'px';stick.style.top=35+Math.sin(ang)*dist+'px';
+ player.angle=ang;
+});
+joystick.addEventListener('touchend',()=>{joyActive=false;keys.x=0;keys.y=0;stick.style.left='35px';stick.style.top='35px'});
+
+document.getElementById('shootBtn').addEventListener('touchstart',e=>{e.preventDefault();shooting=true});
+document.getElementById('shootBtn').addEventListener('touchend',e=>{e.preventDefault();shooting=false});
+document.getElementById('shootBtn').addEventListener('mousedown',()=>shooting=true);
+document.getElementById('shootBtn').addEventListener('mouseup',()=>shooting=false);
+
+document.getElementById('lootBtn').addEventListener('touchstart',lootAction);
+document.getElementById('lootBtn').addEventListener('click',lootAction);
+
+function lootAction(){
+ if(nearLoot && !nearLoot.taken){
+  player.gun=nearLoot.type;
+  if(nearLoot.type==1) player.ammo[1]+=60;
+  if(nearLoot.type==2) player.ammo[2]+=10;
+  if(nearLoot.type==3) player.ammo[3]+=60;
+  if(nearLoot.type==4) player.ammo[4]+=10;
+  nearLoot.taken=true;
+  document.getElementById('lootBtn').style.display='none';
+ }
+}
+
+function shoot(x,y,angle,gunIdx,owner){
+ if(Date.now()-owner.lastShot<guns[gunIdx].fireRate) return;
+ if(owner.ammo && owner.ammo[gunIdx]<=0 && gunIdx!=0) return;
+ owner.lastShot=Date.now();
+ if(owner.ammo && gunIdx!=0) owner.ammo[gunIdx]--;
+ bullets.push({x:x,y:y,angle:angle,speed:12,range:guns[gunIdx].range,traveled:0,dmg:guns[gunIdx].dmg,owner:owner});
+ for(let i=0;i<5;i++) particles.push({x:x,y:y,vx:(Math.random()-0.5)*6,vy:(Math.random()-0.5)*6,life:10});
+}
+
+function update(){
+ let nx=player.x+keys.x*player.speed, ny=player.y+keys.y*player.speed;
+ let blocked=false;
+ for(let b of buildings) if(nx>b.x-15 && nx<b.x+b.w+15 && ny>b.y-15 && ny<b.y+b.h+15) blocked=true;
+ if(!blocked){player.x=nx;player.y=ny;}
+ cam.x=player.x-W/2;cam.y=player.y-H/2;
+ zoneRadius-=shrinkSpeed; if(zoneRadius<200) zoneRadius=200;
+ let distToZone=Math.hypot(player.x-zoneX,player.y-zoneY);
+ if(distToZone>zoneRadius){player.hp-=0.2; document.getElementById('zone').innerText='ZONE: DANGER!';document.getElementById('zone').style.background='#f00';}
+ else{document.getElementById('zone').innerText='ZONE: SAFE';document.getElementById('zone').style.background='rgba(0,0,0,0.7)';}
+ if(shooting) shoot(player.x,player.y,player.angle,player.gun,{lastShot:player,ammo:player.ammo,lastShotTime:lastShot,get lastShot(){return lastShot},set lastShot(v){lastShot=v}});
+ nearLoot=null;let minD=80;
+ for(let l of loots) if(!l.taken){let d=Math.hypot(player.x-l.x,player.y-l.y);if(d<minD){minD=d;nearLoot=l;}}
+ document.getElementById('lootBtn').style.display=nearLoot?'flex':'none';
+ for(let e of enemies) if(e.alive){
+  if(Math.hypot(e.x-player.x,e.y-player.y)<600){
+   let ang=Math.atan2(player.y-e.y,player.x-e.x);
+   if(Math.random()<0.02) shoot(e.x,e.y,ang+(Math.random()-0.5)*0.3,e.gun,e);
+  }
+  let ang=Math.atan2(e.ty-e.y,e.tx-e.x);e.x+=Math.cos(ang)*1.5;e.y+=Math.sin(ang)*1.5;
+  if(Math.hypot(e.x-e.tx,e.y-e.ty)<20){e.tx=Math.random()*2800;e.ty=Math.random()*2800;}
+  let dz=Math.hypot(e.x-zoneX,e.y-zoneY);if(dz>zoneRadius){let a=Math.atan2(zoneY-e.y,zoneX-e.x);e.x+=Math.cos(a)*2;e.y+=Math.sin(a)*2;}
+ }
+ for(let i=bullets.length-1;i>=0;i--){
+  let b=bullets[i];b.x+=Math.cos(b.angle)*b.speed;b.y+=Math.sin(b.angle)*b.speed;b.traveled+=b.speed;
+  if(b.traveled>b.range){bullets.splice(i,1);continue;}
+  for(let bl of buildings) if(b.x>bl.x && b.x<bl.x+bl.w && b.y>bl.y && b.y<bl.y+bl.h){bullets.splice(i,1);break;}
+  if(b.owner!==player && b.owner.lastShot!==undefined){
+   if(Math.hypot(b.x-player.x,b.y-player.y)<20){player.hp-=b.dmg*(player.hasVest?0.7:1);bullets.splice(i,1);continue;}
+  } else {
+   for(let e of enemies) if(e.alive && b.owner==player){
+    if(Math.hypot(b.x-e.x,b.y-e.y)<20){e.hp-=b.dmg;bullets.splice(i,1);if(e.hp<=0){e.alive=false;alive--;loots.push({x:e.x,y:e.y,type:e.gun,taken:false});}break;}
+   }
+  }
+ }
+ document.getElementById('healthFill').style.width=(player.hp)+'%';
+ document.getElementById('alive').innerText='ALIVE: '+alive;
+ document.getElementById('gunName').innerText=guns[player.gun].name+' | Ammo: '+(player.ammo[player.gun]==Infinity?'∞':player.ammo[player.gun]);
+ if(player.hp<=0) endGame(false);
+ if(alive<=1) endGame(true);
+}
+
+function draw(){
+ ctx.fillStyle='#7ba05b';ctx.fillRect(-cam.x,-cam.y,3000,3000);
+ ctx.strokeStyle='rgba(0,0,0,0.1)';for(let i=0;i<3000;i+=100){ctx.beginPath();ctx.moveTo(i-cam.x,0-cam.y);ctx.lineTo(i-cam.x,3000-cam.y);ctx.stroke();ctx.beginPath();ctx.moveTo(0-cam.x,i-cam.y);ctx.lineTo(3000-cam.x,i-cam.y);ctx.stroke();}
+ ctx.fillStyle='rgba(255,0,0,0.15)';ctx.beginPath();ctx.arc(zoneX-cam.x,zoneY-cam.y,zoneRadius,0,Math.PI*2);ctx.fill();
+ ctx.strokeStyle='#ff0000';ctx.lineWidth=3;ctx.stroke();
+ for(let b of buildings){ctx.fillStyle='#8B4513';ctx.fillRect(b.x-cam.x,b.y-cam.y,b.w,b.h);ctx.fillStyle='#5a2d0c';ctx.fillRect(b.x-cam.x,b.y-cam.y,b.w,10);ctx.fillRect(b.x-cam.x,b.y-cam.y,10,b.h);}
+ for(let l of loots) if(!l.taken){ctx.fillStyle=l.type==1?'#ffcc00':l.type==2?'#ff0000':l.type==3?'#00ff00':'#00ffff';ctx.fillRect(l.x-cam.x-8,l.y-cam.y-8,16,16);ctx.strokeStyle='#fff';ctx.strokeRect(l.x-cam.x-8,l.y-cam.y-8,16,16);}
+ for(let e of enemies) if(e.alive){ctx.fillStyle='#000';ctx.beginPath();ctx.arc(e.x-cam.x,e.y-cam.y,15,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f00';ctx.fillRect(e.x-cam.x-15,e.y-cam.y-22,30,4);ctx.fillStyle='#0f0';ctx.fillRect(e.x-cam.x-15,e.y-cam.y-22,30*(e.hp/100),4);}
+ ctx.save();ctx.translate(player.x-cam.x,player.y-cam.y);ctx.rotate(player.angle);ctx.fillStyle='#ffcc00';ctx.beginPath();ctx.arc(0,0,14,0,Math.PI*2);ctx.fill();ctx.fillStyle='#000';ctx.fillRect(10,-2,18,4);ctx.fillStyle='#fff';ctx.font='10px Arial';ctx.fillText('YOU',-12,-18);ctx.restore();
+ for(let b of bullets){ctx.fillStyle='#ffff00';ctx.beginPath();ctx.arc(b.x-cam.x,b.y-cam.y,4,0,Math.PI*2);ctx.fill();}
+ mctx.fillStyle='#222';mctx.fillRect(0,0,100,100);
+ mctx.strokeStyle='#f00';mctx.beginPath();mctx.arc((zoneX/30),(zoneY/30),zoneRadius/30,0,Math.PI*2);mctx.stroke();
+ mctx.fillStyle='#ffcc00';mctx.fillRect(player.x/30-2,player.y/30-2,4,4);
+ for(let e of enemies) if(e.alive){mctx.fillStyle='#f00';mctx.fillRect(e.x/30-1,e.y/30-1,2,2);}
+}
+
+function endGame(win){
+ document.getElementById('booyah').style.display='flex';
+ document.getElementById('resultText').innerText=win?'YOU WON! BOOYAH! 🏆':'YOU DIED - Try Again! 💀';
+}
+
+function loop(){update();draw();requestAnimationFrame(loop);}loop();
+</script>
+</body>
+</html>
